@@ -1,0 +1,68 @@
+import cv2
+import numpy as np
+
+# Load the image
+img = cv2.imread('image.png')
+
+# Check if the image was loaded successfully
+if img is None:
+    print("Error: Image could not be loaded. Please check the file path.")
+else:
+    # Convert to grayscale
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    # Apply edge detection
+    edges = cv2.Canny(gray, 50, 150)
+
+    # Find contours
+    contours, _ = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+    # Initialize a list to store the detected shapes
+    detected_shapes = []
+
+    # Iterate through contours and detect shapes
+    for contour in contours:
+        # Calculate contour perimeter
+        perimeter = cv2.arcLength(contour, True)
+
+        # Approximate contour with a polygon
+        epsilon = 0.02 * perimeter
+        approx = cv2.approxPolyDP(contour, epsilon, True)
+
+        # Detect shapes
+        if len(approx) == 2:
+            detected_shapes.append("Straight line")
+        elif len(approx) == 4:
+            x, y, w, h = cv2.boundingRect(approx)
+            aspect_ratio = float(w)/h
+            if aspect_ratio > 2 or aspect_ratio < 0.5:
+                detected_shapes.append("Rectangle")
+            else:
+                detected_shapes.append("Rounded rectangle")
+        elif len(approx) > 4:
+            (x, y), radius = cv2.minEnclosingCircle(approx)
+            if radius > 10:
+                detected_shapes.append("Circle or ellipse")
+            else:
+                if len(approx) == 3:
+                    detected_shapes.append("Triangle")
+        else:
+            (x, y), radius = cv2.minEnclosingCircle(approx)
+            if radius > 10:
+                detected_shapes.append("Star shape")
+
+    # Remove duplicates from the list
+    detected_shapes = list(set(detected_shapes))
+
+    # Print detected shapes
+    print("Detected shapes:", detected_shapes)
+
+    # Optional challenge: Convert image to polyline
+    polyline = []
+    for contour in contours:
+        epsilon = 0.02 * cv2.arcLength(contour, True)
+        approx = cv2.approxPolyDP(contour, epsilon, True)
+        polyline.extend(approx)
+    polyline = np.array(polyline).reshape(-1, 1, 2)
+    simplified_polyline = cv2.approxPolyDP(polyline, 0.5, True)
+    print("Polyline simplified")
