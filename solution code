@@ -1,0 +1,112 @@
+from google.colab import files
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Upload the image
+uploaded = files.upload()
+
+# Load the image using OpenCV and convert it to grayscale
+image_path = next(iter(uploaded))
+image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+
+# Check if the image was loaded successfully
+if image is None:
+    raise ValueError("Failed to load image. Please check the file path and try again.")
+
+# Display the grayscale image
+plt.figure(figsize=(10, 6))
+plt.imshow(image, cmap='gray')
+plt.axis('off')
+plt.show()
+
+# Apply Gaussian blur to reduce noise
+blurred = cv2.GaussianBlur(image, (5, 5), 0)
+
+# Apply adaptive thresholding to binarize the image
+thresh = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 11, 2)
+
+# Display the thresholded image
+plt.figure(figsize=(10, 6))
+plt.imshow(thresh, cmap='gray')
+plt.axis('off')
+plt.show()
+
+# Detect contours in the thresholded image using the RETR_TREE mode
+contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+# Draw contours on a copy of the original image
+contour_image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+
+def classify_shape(contour):
+    # Approximate the contour
+    epsilon = 0.04 * cv2.arcLength(contour, True)
+    approx = cv2.approxPolyDP(contour, epsilon, True)
+    
+    # Classify based on the number of vertices
+    vertices = len(approx)
+    if vertices == 3:
+        return "Triangle"
+    elif vertices == 4:
+        # Determine if the shape is a square or rectangle
+        x, y, w, h = cv2.boundingRect(approx)
+        aspect_ratio = float(w) / h
+        return "Square" if 0.95 <= aspect_ratio <= 1.05 else "Rectangle"
+    elif vertices > 4:
+        return "Circle" if cv2.isContourConvex(approx) else "Irregular"
+    else:
+        return "Irregular"
+
+# Track processed contours by their unique identifiers
+processed_shapes = set()
+
+def process_contour(index):
+    if index < 0:
+        return
+    
+    contour = contours[index]
+    shape = classify_shape(contour)
+    x, y, w, h = cv2.boundingRect(contour)
+    bounding_box = (x, y, x+w, y+h)
+    shape_id = (bounding_box, shape)
+    
+    # Check if this shape has already been processed
+    if shape_id not in processed_shapes:
+        processed_shapes.add(shape_id)
+        
+        M = cv2.moments(contour)
+        if M["m00"] != 0:
+            cX = int(M["m10"] / M["m00"])
+            cY = int(M["m01"] / M["m00"])
+            color = (0, 255, 0) if hierarchy[0][index][3] == -1 else (255, 0, 0)
+            cv2.drawContours(contour_image, [contour], -1, color, 2)
+            cv2.putText(contour_image, shape, (cX - 50, cY), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+        
+        # Process any child (nested) contours
+        if hierarchy[0][index][2] != -1:
+            process_contour(hierarchy[0][index][2])
+    
+        # Process any sibling contours
+        if hierarchy[0][index][0] != -1:
+            process_contour(hierarchy[0][index][0])
+
+# Start processing from the top-level contours
+for i in range(len(contours)):
+    process_contour(i)
+
+# Display the final result
+plt.figure(figsize=(10, 6))
+plt.imshow(cv2.cvtColor(contour_image, cv2.COLOR_BGR2RGB))
+plt.axis('off')
+plt.show()
+
+# Save the result
+output_image_path = 'detected_shapes.png'
+cv2.imwrite(output_image_path, contour_image)
+
+# Download the saved image
+files.download(output_image_path)
+
+# Print detected shapes
+detected_shapes = {shape for _, shape in processed_shapes}
+print("Detected shapes:", detected_shapes)
