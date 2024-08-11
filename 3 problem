@@ -1,0 +1,49 @@
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+
+
+image = cv2.imread('shape3.png')
+gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+
+_, thresh = cv2.threshold(gray, 240, 255, cv2.THRESH_BINARY_INV)
+
+
+contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+
+mask = np.zeros_like(image)
+
+
+for contour in contours:
+    if len(contour) >= 5:
+        ellipse = cv2.fitEllipse(contour)
+        center = (int(ellipse[0][0]), int(ellipse[0][1]))
+        axes = (int(ellipse[1][0] / 2), int(ellipse[1][1] / 2))
+        angle = ellipse[2]
+
+        for i in range(0, 360, 10):
+            if i % 20 == 0:
+                cv2.ellipse(mask, center, axes, angle, i, i + 5, (0, 255, 0), 2)
+
+
+dotted_image = cv2.add(image, mask)
+
+
+gray_dotted = cv2.cvtColor(dotted_image, cv2.COLOR_BGR2GRAY)
+_, thresh_dotted = cv2.threshold(gray_dotted, 240, 255, cv2.THRESH_BINARY_INV)
+
+
+contours, _ = cv2.findContours(thresh_dotted, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+
+x, y, w, h = cv2.boundingRect(max(contours, key=cv2.contourArea))
+cropped_dotted_image = dotted_image[y:y+h, x:x+w]
+
+
+cropped_dotted_image_rgb = cv2.cvtColor(cropped_dotted_image, cv2.COLOR_BGR2RGB)
+
+plt.imshow(cropped_dotted_image_rgb)
+plt.title('Cropped Image of (b) with Completed Dotted Lines')
+plt.show()
