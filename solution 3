@@ -1,0 +1,106 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+def find_symmetry_lines(points):
+    """
+    Find all possible reflection symmetry lines in a set of points.
+
+    Parameters:
+    points (numpy array): A 2D array of shape (n, 2) where each row is a point (x, y)
+
+    Returns:
+    symmetry_lines (list): A list of symmetry lines, each represented as a 2D array of shape (2, 2)
+    """
+    symmetry_lines = []
+    for i in range(len(points)):
+        for j in range(i + 1, len(points)):
+            midpoint = (points[i] + points[j]) / 2
+            direction = points[j] - points[i]
+            direction = direction / np.linalg.norm(direction)
+            normal = np.array([-direction[1], direction[0]])
+            symmetry_line = np.array([midpoint, midpoint + normal])
+            symmetry_lines.append(symmetry_line)
+
+    return symmetry_lines
+
+def check_symmetry(points):
+    """
+    Check if a shape has vertical, horizontal, and diagonal symmetry.
+
+    Parameters:
+    points (numpy array): A 2D array of shape (n, 2) where each row is a point (x, y)
+
+    Returns:
+    is_symmetric (bool): True if the shape has symmetry, False otherwise
+    symmetry_lines (list): A list of symmetry lines, each represented as a 2D array of shape (2, 2)
+    """
+    symmetry_lines = find_symmetry_lines(points)
+
+    # Check for vertical symmetry
+    vertical_symmetry = np.array([[points[:, 0].min(), 0], [points[:, 0].max(), 0]])
+    if not np.any([np.allclose(line, vertical_symmetry) for line in symmetry_lines]):
+        return False, []
+
+    # Check for horizontal symmetry
+    horizontal_symmetry = np.array([[0, points[:, 1].min()], [0, points[:, 1].max()]])
+    if not np.any([np.allclose(line, horizontal_symmetry) for line in symmetry_lines]):
+        return False, []
+
+    # Check for diagonal symmetry
+    diagonal_symmetry1 = np.array([[points[:, 0].min(), points[:, 1].min()], [points[:, 0].max(), points[:, 1].max()]])
+    diagonal_symmetry2 = np.array([[points[:, 0].min(), points[:, 1].max()], [points[:, 0].max(), points[:, 1].min()]])
+    if not (np.any([np.allclose(line, diagonal_symmetry1) for line in symmetry_lines]) or
+            np.any([np.allclose(line, diagonal_symmetry2) for line in symmetry_lines])):
+        return False, []
+
+    return True, symmetry_lines
+
+def adjust_to_symmetry(points):
+    """
+    Adjust the coordinates to make the shape symmetric.
+
+    Parameters:
+    points (numpy array): A 2D array of shape (n, 2) where each row is a point (x, y)
+
+    Returns:
+    adjusted_points (numpy array): A 2D array of shape (n, 2) where each row is a point (x, y)
+    """
+    # Calculate the centroid of the points
+    centroid = np.mean(points, axis=0)
+
+    # Calculate the reflection of each point about the centroid
+    reflected_points = 2 * centroid - points
+
+    # Calculate the average of the original and reflected points
+    adjusted_points = (points + reflected_points) / 2
+
+    return adjusted_points
+
+# Example usage
+points = np.array([[0, 0], [1, 1], [2, 2], [3, 3], [4, 4]])
+is_symmetric, symmetry_lines = check_symmetry(points)
+
+if not is_symmetric:
+    print("The shape does not have symmetry. Adjusting coordinates to make it symmetric...")
+    adjusted_points = adjust_to_symmetry(points)
+    print("Adjusted points:")
+    print(adjusted_points)
+
+    # Plot the original and adjusted points
+    plt.scatter(points[:, 0], points[:, 1], label='Original')
+    plt.scatter(adjusted_points[:, 0], adjusted_points[:, 1], label='Adjusted')
+    plt.gca().set_aspect('equal')
+    plt.legend()
+    plt.show()
+else:
+    print("The shape has symmetry!")
+    print("Symmetry lines:")
+    for line in symmetry_lines:
+        print(line)
+
+    # Plot the points and symmetry lines
+    plt.scatter(points[:, 0], points[:, 1])
+    for line in symmetry_lines:
+        plt.plot(line[:, 0], line[:, 1], 'k-')
+    plt.gca().set_aspect('equal')
+    plt.show()
